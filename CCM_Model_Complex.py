@@ -297,7 +297,7 @@ class Graph_Encoder_Attention(nn.Module):
         rh = self.rel_mlp(All_subgraph_embeds[:,:,:,slice_ids[1]:slice_ids[2]])
         hh = self.head_mlp(All_subgraph_embeds[:,:,:,0:slice_ids[0]])
         th = self.tail_mlp(All_subgraph_embeds[:,:,:,slice_ids[0]:slice_ids[1]])
-        beta = torch.sum(torch.mul(rh, complex_relu(torch.add(hh, th))), dim=3)
+        beta = torch.sum(torch.mul(rh, torch.conj(complex_relu(torch.add(hh, th)))), dim=3)
         beta = beta.abs()
         alpha = torch.softmax(beta, dim=2)
         g = torch.sum(torch.mul(alpha.unsqueeze(3), All_subgraph_embeds[:,:,:,0:slice_ids[1]]),dim=2).abs()
@@ -337,7 +337,7 @@ class Graph_Attention_Hierarchy_Triples(nn.Module):
         #print(decoder_hidden_state.shape)
         decoder_hidden_state_complex = torch.zeros(decoder_hidden_state.shape[0],decoder_hidden_state.shape[1],dtype=torch.cfloat).to(device)
         decoder_hidden_state_complex.real = decoder_hidden_state
-        intermediate = self.decoder_mapper_mlp(decoder_hidden_state_complex)
+        intermediate = torch.conj(self.decoder_mapper_mlp(decoder_hidden_state_complex))
         beta = torch.sum(torch.mul(all_embeddings, intermediate.unsqueeze(1).unsqueeze(2)),dim=3).abs()  # Should it be mul or add?. It should be Mul, we are multiplying with kj and transpose which we model as sum over mul.
         alpha = torch.mul(alpha_graph_attention_top, torch.softmax(beta, dim=2))
         c_hierarchical = torch.sum(torch.sum(torch.mul(alpha.unsqueeze(3), all_embeddings), dim=2), dim=1).abs()
@@ -362,7 +362,6 @@ class MultiLayer_GRU_Cell(nn.Module):
             gru_hidden_state[layer] = self.gru_cell_array[layer](layer_input, gru_hidden_state_input[layer])
             layer_input = gru_hidden_state_input[layer]
         return gru_hidden_state[self.num_layers - 1], gru_hidden_state
-
 
 """
 List of sizes for all models
