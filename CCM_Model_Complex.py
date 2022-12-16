@@ -720,6 +720,11 @@ def train(epoch_begin,epoch_end):
             #word_predict_target = torch.zeros(valid_word_symbol_probabilities).long().to(device)
         
             #word_predict_target = torch.cat((torch.ones(batch_size,current_batch_length).unsqueeze(2),torch.zeros(batch_size,current_batch_length).unsqueeze(2)),dim=2).to(device)
+            word_regularizer = torch.div(torch.sum(torch.add(0.85*batch_all_responses_weights,batch_all_responses_weights_complement)),torch.sum(1.15*batch_all_responses_weights))
+            #print("loss scaling is")
+            #print(loss_scaling)
+            
+            #knowledge_regularizer = torch.sum(q_val_target)
 
             # anything greater than 0 should be 1
             if(batch%num_accumulate_batches == 0):
@@ -731,7 +736,7 @@ def train(epoch_begin,epoch_end):
             #print(word_symbol_probabilties_tensor.view(-1,1))
             #print(word_symbol_probabilties_tensor.view(-1,1).shape)
             #print(loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1)))
-            computed_loss = loss_word_knowledge_probabilities(probability_word_knowledge_tensor.view(-1), q_val_target.view(-1)) + loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1))
+            computed_loss = torch.mul((0.15*current_batch_length*loss_word_knowledge_probabilities(probability_word_knowledge_tensor.view(-1), q_val_target.view(-1)) + loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1))),word_regularizer)
             computed_loss.backward()
             if(batch%num_accumulate_batches == num_accumulate_batches-1):
                 optimizer.step()
