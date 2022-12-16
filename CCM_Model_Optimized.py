@@ -722,7 +722,7 @@ def train(epoch_begin,epoch_end):
         
         
         #file_saver = save_directory + "epoch_" + str(epoch) + ".pt"
-        print(f"End epoch {epoch} saving " + file_saver)
+        print(f"End epoch {epoch} saving " + str(epoch))
         torch.save({
             'epoch': epoch,
             'model_state_dict': mymodel.state_dict(),
