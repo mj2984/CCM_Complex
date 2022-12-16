@@ -36,7 +36,7 @@ Encoder_Attention_V_size = 256
 
 #base_directory = "/home/chris/Documents/columbia/fall_22/dialog_project/CCM_Torch/Data/"
 base_directory = "./Data/"
-save_directory = base_directory + "Model_save_dir/"
+save_directory = "./Model_save_dir/"
 
 train_file = base_directory + "Post_processed_data/trainset.txt"
 # graph_embedding_lookup_file = "C:/Users/manue/Downloads/ConvAI Assignment1/Projects/CCM_Torch/Data/Post_processed_data/embedding_lookup.txt"
@@ -653,89 +653,87 @@ optimizer = optim.Adam(mymodel.parameters(), lr=learning_rate)
 #mymodel.load_state_dict(torch.load('./epoch_1.pt')['model_state_dict'])
 #optimizer.load_state_dict(torch.load('./epoch_1.pt')['optimizer_state_dict'])
 
-for epoch in range(0, num_epochs):
-    f = open(train_file, "r")
-    # print("epoch is" + str(epoch))
-    for batch in tqdm(range(0, num_batches)):
-        h = []
-        for sentence_id in range(batch_size):
-            g = f.readline()
-            h.append(json.loads(g))
-
-        max_post_length = max([len(x['post']) for x in h])
-        max_response_length = max([len(x['response']) for x in h])
-        current_batch_length = max([max_post_length, max_response_length]) + 4  # POS
-
-        my_preprocessor = batch_tensor_input_gen(current_batch_length,
-                                                 dynamic_batch_subgraph_triples_size[1], hrtw_embedding_sizes)
-        batchwise_all_token_embeddings, q_vals, batch_all_responses, sparse_sentence_processed_subgraphs = my_preprocessor.sentence_embed_gen(h, batch_size)
-        
-        batchwise_concatenated_data = torch.cat((sparse_sentence_processed_subgraphs[0],sparse_sentence_processed_subgraphs[2],sparse_sentence_processed_subgraphs[1]),dim=3).to_dense().to(device)
-        batchwise_all_token_embeddings = batchwise_all_token_embeddings.to(device)
-        batch_all_responses_gpu = batch_all_responses.long().to(device)
-        batch_all_responses_weights = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0, 1)
-        batch_all_responses_weights_complement = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0.0001, 0)
-        #b = torch.sum(batch_all_responses_weights,dim=1)
-        
-        
-        #vertical_ids = torch.zeros(0)
-        #horizontal_ids = torch.zeros(0)
-        #for vertical_id in range(0,b.shape[0]):
-        #    vertical_ids = torch.cat((vertical_ids,vertical_id*torch.ones(b[vertical_id])),dim=0)
-        #    horizontal_ids = torch.cat((horizontal_ids,torch.arange(0,b[vertical_id])),dim=0)
-
-        word_symbol_probabilties_tensor, probability_word_knowledge_tensor, predictions = mymodel(batchwise_concatenated_data,batchwise_all_token_embeddings,word_embedding_lookup_gpu,batch_all_responses_gpu)
-        #valid_word_symbol_probabilities = word_symbol_probabilties_tensor[vertical_ids.long(),horizontal_ids.long()]
-        
-        valid_word_symbol_probabilities = torch.add(torch.mul(word_symbol_probabilties_tensor,batch_all_responses_weights),batch_all_responses_weights_complement)
-
-        # for x in sentence_processed_subgraphs_torch:
-        #     del x
-        #
-        # sentence_processed_subgraphs_torch.clear()
-        # torch.cuda.empty_cache()
-        q_val_target = torch.where(q_vals > 0, 1.0, 0.0).to(device)
-        word_predict_target = torch.zeros(batch_size,current_batch_length).long().to(device)
-        #word_predict_target = torch.zeros(valid_word_symbol_probabilities).long().to(device)
-        
-        #word_predict_target = torch.cat((torch.ones(batch_size,current_batch_length).unsqueeze(2),torch.zeros(batch_size,current_batch_length).unsqueeze(2)),dim=2).to(device)
-
-        # anything greater than 0 should be 1
-        if(batch%num_accumulate_batches == 0):
-            optimizer.zero_grad()
-            
-        #print(word_symbol_probabilties_tensor.view(-1,1))
-        #print(word_symbol_probabilties_tensor.view(-1,1).shape)
-        print(loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1)))
-        computed_loss = 2*loss_word_knowledge_probabilities(probability_word_knowledge_tensor.view(-1), q_val_target.view(-1)) + loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1))
-        computed_loss.backward()
-        if(batch%num_accumulate_batches == num_accumulate_batches-1):
-            optimizer.step()
-            
-        print(f"Loss: {computed_loss.item()} PPL: {torch.exp(computed_loss).item()} ")
-        
-        
-    file_saver = save_directory + "epoch_" + str(epoch) + ".pt"
-    print(f"End epoch {epoch} saving " + file_saver)
-    torch.save({
-        'epoch': epoch,
-        'model_state_dict': mymodel.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'loss': computed_loss.item(),
-        'ppl': torch.exp(computed_loss).item(),
-    }, "epoch_" + str(epoch) + ".pt")
-    torch.save(mymodel.state_dict(), "epoch_model_only" + str(epoch) + ".pt")
-    f.close()
-
-# f = open(train_file,"r")
-# sentence_processed_subgraphs.append(np.random.rand(batch_size,dynamic_batch_sequence_length[1],hrtw_embedding_sizes[3]))
-
-
-'''
-def train(model, device, train_loader, optimizer, epoch):
-    model.train()
+def train(epoch_begin,epoch_end):
+    if(epoch_begin != 0):
+        mymodel.load_state_dict(torch.load(save_directory + "epoch_" + str(epoch-1) + ".pt")['model_state_dict'])
+        optimizer.load_state_dict(torch.load(save_directory + "epoch_" + str(epoch-1) + ".pt")['optimizer_state_dict'])
+        computed_loss = torch.load(save_directory + "epoch_" + str(epoch-1) + ".pt")['loss']
     
+    mymodel.train()
+    
+    for epoch in range(epoch_begin, epoch_end):
+        f = open(train_file, "r")
+        # print("epoch is" + str(epoch))
+        for batch in tqdm(range(0, num_batches)):
+            h = []
+            for sentence_id in range(batch_size):
+                g = f.readline()
+                h.append(json.loads(g))
 
-for epoch in range(num_epochs):
-    train(model, device, train_loader, optimizer, epoch)
-'''
+            max_post_length = max([len(x['post']) for x in h])
+            max_response_length = max([len(x['response']) for x in h])
+            current_batch_length = max([max_post_length, max_response_length]) + 4  # POS
+
+            my_preprocessor = batch_tensor_input_gen(current_batch_length,
+                                                 dynamic_batch_subgraph_triples_size[1], hrtw_embedding_sizes)
+            batchwise_all_token_embeddings, q_vals, batch_all_responses, sparse_sentence_processed_subgraphs = my_preprocessor.sentence_embed_gen(h, batch_size)
+        
+            batchwise_concatenated_data = torch.cat((sparse_sentence_processed_subgraphs[0],sparse_sentence_processed_subgraphs[2],sparse_sentence_processed_subgraphs[1]),dim=3).to_dense().to(device)
+            batchwise_all_token_embeddings = batchwise_all_token_embeddings.to(device)
+            batch_all_responses_gpu = batch_all_responses.long().to(device)
+            batch_all_responses_weights = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0, 1)
+            batch_all_responses_weights_complement = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0.85, 0)
+            #b = torch.sum(batch_all_responses_weights,dim=1)
+            #vertical_ids = torch.zeros(0)
+            #horizontal_ids = torch.zeros(0)
+            #for vertical_id in range(0,b.shape[0]):
+            #    vertical_ids = torch.cat((vertical_ids,vertical_id*torch.ones(b[vertical_id])),dim=0)
+            #    horizontal_ids = torch.cat((horizontal_ids,torch.arange(0,b[vertical_id])),dim=0)
+
+            word_symbol_probabilties_tensor, probability_word_knowledge_tensor, predictions = mymodel(batchwise_concatenated_data,batchwise_all_token_embeddings,word_embedding_lookup_gpu,batch_all_responses_gpu)
+            #valid_word_symbol_probabilities = word_symbol_probabilties_tensor[vertical_ids.long(),horizontal_ids.long()]
+        
+            valid_word_symbol_probabilities = torch.add(torch.mul(word_symbol_probabilties_tensor,batch_all_responses_weights),batch_all_responses_weights_complement)
+
+            # for x in sentence_processed_subgraphs_torch:
+            #     del x
+            #
+            # sentence_processed_subgraphs_torch.clear()
+            # torch.cuda.empty_cache()
+            q_val_target = torch.where(q_vals > 0, 1.0, 0.0).to(device)
+            word_predict_target = torch.zeros(batch_size,current_batch_length).long().to(device)
+            #word_predict_target = torch.zeros(valid_word_symbol_probabilities).long().to(device)
+        
+            #word_predict_target = torch.cat((torch.ones(batch_size,current_batch_length).unsqueeze(2),torch.zeros(batch_size,current_batch_length).unsqueeze(2)),dim=2).to(device)
+
+            # anything greater than 0 should be 1
+            if(batch%num_accumulate_batches == 0):
+                optimizer.zero_grad()
+            
+            #print(word_symbol_probabilties_tensor.view(-1,1))
+            #print(word_symbol_probabilties_tensor.view(-1,1).shape)
+            #print(loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1)))
+            computed_loss = 2*loss_word_knowledge_probabilities(probability_word_knowledge_tensor.view(-1), q_val_target.view(-1)) + loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1))
+            computed_loss.backward()
+            if(batch%num_accumulate_batches == num_accumulate_batches-1):
+                optimizer.step()
+            
+            print(f"Loss: {computed_loss.item()} PPL: {torch.exp(computed_loss).item()} ")
+        
+        
+        #file_saver = save_directory + "epoch_" + str(epoch) + ".pt"
+        print(f"End epoch {epoch} saving " + file_saver)
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': mymodel.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': computed_loss,
+            'ppl': torch.exp(computed_loss).item(),
+        }, save_directory + "epoch_" + str(epoch) + ".pt")
+        #torch.save(mymodel.state_dict(), save_directory + "epoch_model_only_" + str(epoch) + ".pt")
+        f.close()
+
+    # f = open(train_file,"r")
+    # sentence_processed_subgraphs.append(np.random.rand(batch_size,dynamic_batch_sequence_length[1],hrtw_embedding_sizes[3]))
+
+train(0,num_epochs)
