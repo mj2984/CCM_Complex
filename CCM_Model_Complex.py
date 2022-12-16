@@ -731,7 +731,7 @@ def train(epoch_begin,epoch_end):
             #print(word_symbol_probabilties_tensor.view(-1,1))
             #print(word_symbol_probabilties_tensor.view(-1,1).shape)
             #print(loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1)))
-            computed_loss = 2*loss_word_knowledge_probabilities(probability_word_knowledge_tensor.view(-1), q_val_target.view(-1)) + loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1))
+            computed_loss = loss_word_knowledge_probabilities(probability_word_knowledge_tensor.view(-1), q_val_target.view(-1)) + loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1))
             computed_loss.backward()
             if(batch%num_accumulate_batches == num_accumulate_batches-1):
                 optimizer.step()
