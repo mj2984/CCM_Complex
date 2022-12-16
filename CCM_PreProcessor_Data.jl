@@ -7,8 +7,7 @@ using DelimitedFiles
 augmentation = "Augmented"
 embedding_style = "RotatE"
 
-base_folder = "C:/Users/manue/Desktop/GitHubProjects/Fall2022-CourseProject1/CCM_Torch/Data/"
-#base_folder = "./Data/"
+base_folder = "./Data/"
 file_resource = base_folder * "resource.txt";
 output_file = base_folder * "Post_processed_data/trainset.txt";
 output_embedding_lookup_file = base_folder * "Post_processed_data/embedding_lookup.txt";
