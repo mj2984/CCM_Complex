@@ -42,6 +42,7 @@ save_directory = "./Model_save_dir/"
 
 train_file = base_directory + "Post_processed_data/trainset.txt"
 # graph_embedding_lookup_file = "C:/Users/manue/Downloads/ConvAI Assignment1/Projects/CCM_Torch/Data/Post_processed_data/embedding_lookup.txt"
+test_file = base_directory + "Post_processed_data/testset.txt"
 word_embedding_lookup_file = base_directory + "Post_processed_data/word_embeddings.txt"
 word_embedding_symbol_dictionary_file = base_directory + "Post_processed_data/word_dictionary.txt"
 word_embedding_appender_file = base_directory + "add_words_vocabulary.txt"
@@ -755,6 +756,54 @@ def train(epoch_begin,epoch_end):
         }, save_directory + "epoch_" + str(epoch) + ".pt")
         #torch.save(mymodel.state_dict(), save_directory + "epoch_model_only_" + str(epoch) + ".pt")
         f.close()
+        
+        f = open(test_file, "r")
+        for batch1 in range(0,3):
+            h = []
+            for sentence_id in range(40):
+                g = f.readline()
+                h.append(json.loads(g))
+            
+            max_post_length = max([len(x['post']) for x in h])
+            max_response_length = max([len(x['response']) for x in h])
+            current_batch_length = max([max_post_length, max_response_length]) + 4  # POS
+            
+            my_preprocessor = batch_tensor_input_gen(current_batch_length,
+                                                 dynamic_batch_subgraph_triples_size[1], hrtw_embedding_sizes)
+            batchwise_all_token_embeddings, q_vals, batch_all_responses, sparse_sentence_processed_subgraphs = my_preprocessor.sentence_embed_gen(h, batch_size)
+            
+            Complex1 = torch.zeros(sparse_sentence_processed_subgraphs[0].shape[0],sparse_sentence_processed_subgraphs[0].shape[1],sparse_sentence_processed_subgraphs[0].shape[2],sparse_sentence_processed_subgraphs[0].shape[3]//2, dtype = torch.cfloat);
+            Complex1.Real = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+            Complex1.Imag = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
+            Complex2 = torch.zeros(sparse_sentence_processed_subgraphs[0].shape[0],sparse_sentence_processed_subgraphs[0].shape[1],sparse_sentence_processed_subgraphs[0].shape[2],sparse_sentence_processed_subgraphs[0].shape[3]//2, dtype = torch.cfloat);
+            Complex2.Real = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+            Complex2.Imag = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
+            Complex3 = torch.zeros(sparse_sentence_processed_subgraphs[0].shape[0],sparse_sentence_processed_subgraphs[0].shape[1],sparse_sentence_processed_subgraphs[0].shape[2],sparse_sentence_processed_subgraphs[0].shape[3]//2, dtype = torch.cfloat);
+            Complex3.Real = sparse_sentence_processed_subgraphs[1].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+        
+            batchwise_concatenated_data = torch.cat((Complex1,Complex2,Complex3),dim=3).to(device)
+            #print(batchwise_concatenated_data.dtype)
+
+            batchwise_all_token_embeddings = batchwise_all_token_embeddings.to(device)
+            batch_all_responses_gpu = batch_all_responses.long().to(device)
+            batch_all_responses_weights = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0, 1)
+            batch_all_responses_weights_complement = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0.85, 0)
+            #b = torch.sum(batch_all_responses_weights,dim=1)
+            #vertical_ids = torch.zeros(0)
+            #horizontal_ids = torch.zeros(0)
+            #for vertical_id in range(0,b.shape[0]):
+            #    vertical_ids = torch.cat((vertical_ids,vertical_id*torch.ones(b[vertical_id])),dim=0)
+            #    horizontal_ids = torch.cat((horizontal_ids,torch.arange(0,b[vertical_id])),dim=0)
+
+            word_symbol_probabilties_tensor, probability_word_knowledge_tensor, predictions = mymodel(batchwise_concatenated_data,batchwise_all_token_embeddings,word_embedding_lookup_gpu,batch_all_responses_gpu)
+            
+            print(word_symbol_probabilties_tensor)
+            print(predictions[:,:,0])
+            
+            np.save(save_directory + "predictions_" + str(epoch) + "_batch_" + str(batch1) + ".npy", predictions.cpu().numpy())
+            np.save(save_directory + "probabilities_" + str(epoch) + "_batch_" + str(batch1) + ".npy", word_symbol_probabilties_tensor.detach().cpu().numpy())
+        
+        print("end epoch results")
 
     # f = open(train_file,"r")
     # sentence_processed_subgraphs.append(np.random.rand(batch_size,dynamic_batch_sequence_length[1],hrtw_embedding_sizes[3]))
