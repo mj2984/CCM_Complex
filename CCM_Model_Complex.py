@@ -652,7 +652,7 @@ mymodel = CCM_Model(Graph_encoder_internal_size, gru_encoder_hidden_size, gru_en
                     word_vocabulary_appender_length).to(device)
 loss_word_symbol_probabilities = torch.nn.NLLLoss()
 loss_word_knowledge_probabilities = torch.nn.BCELoss()
-learning_rate = 1e-4
+learning_rate = 1e-3
 optimizer = optim.Adam(mymodel.parameters(), lr=learning_rate)
 
 #mymodel.load_state_dict(torch.load('./epoch_1.pt')['model_state_dict'])
@@ -808,4 +808,4 @@ def train(epoch_begin,epoch_end):
     # f = open(train_file,"r")
     # sentence_processed_subgraphs.append(np.random.rand(batch_size,dynamic_batch_sequence_length[1],hrtw_embedding_sizes[3]))
 
-train(0,num_epochs)
+train(2,num_epochs)
