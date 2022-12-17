@@ -758,7 +758,9 @@ def train(epoch_begin,epoch_end):
         f.close()
         
         f = open(test_file, "r")
-        for batch1 in range(0,3):
+        for batch1 in range(0,1):
+            print("batch is")
+            print(batch1)
             h = []
             for sentence_id in range(40):
                 g = f.readline()
