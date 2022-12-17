@@ -802,7 +802,7 @@ def train(epoch_begin,epoch_end):
             
             np.save(save_directory + "predictions_" + str(epoch) + "_batch_" + str(batch1) + ".npy", predictions.cpu().numpy())
             np.save(save_directory + "probabilities_" + str(epoch) + "_batch_" + str(batch1) + ".npy", word_symbol_probabilties_tensor.detach().cpu().numpy())
-        
+        f.close()
         print("end epoch results")
 
     # f = open(train_file,"r")
