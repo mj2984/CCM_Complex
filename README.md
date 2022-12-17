@@ -8,7 +8,7 @@ The model implemented here closely follows the CCM architecture with mild change
 1. The preprocessor is implemented in Julia Programming Language.
 Install using: sudo apt-install julia
 2. Install the required packages by running "add_dependencies_julia.jl" in Julia.
-3. The model is implemented using PyTorch in Python. Recommended to use any modern version of Python.
+3. The model is implemented using PyTorch in Python. Recommended to use any modern version of Python. For the Complex Valued network version, [complexPyTorch](https://github.com/wavefrontshaping/complexPyTorch) package is needed.
 
 # Running Instructions:
 
