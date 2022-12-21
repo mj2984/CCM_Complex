@@ -654,7 +654,7 @@ mymodel = CCM_Model(Graph_encoder_internal_size, gru_encoder_hidden_size, gru_en
 loss_word_symbol_probabilities = torch.nn.NLLLoss()
 loss_word_knowledge_probabilities = torch.nn.BCELoss()
 learning_rate_non_decoder = 1e-3
-learning_rate_decoder = 1e-3
+learning_rate_decoder = 1e-4
 optimizer_non_decoder = optim.Adam(mymodel.parameters(), lr=learning_rate_non_decoder)
 optimizer_decoder = optim.Adam([j for i in [list(x.parameters()) for x in mymodel.decoder_multilayer_cell.gru_cell_array] for j in i], lr = learning_rate_decoder)
 
@@ -855,4 +855,4 @@ def train(epoch_begin,epoch_end):
     # f = open(train_file,"r")
     # sentence_processed_subgraphs.append(np.random.rand(batch_size,dynamic_batch_sequence_length[1],hrtw_embedding_sizes[3]))
 
-train(2,num_epochs)
+train(0,num_epochs)
