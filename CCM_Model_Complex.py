@@ -654,9 +654,9 @@ mymodel = CCM_Model(Graph_encoder_internal_size, gru_encoder_hidden_size, gru_en
 loss_word_symbol_probabilities = torch.nn.NLLLoss()
 loss_word_knowledge_probabilities = torch.nn.BCELoss()
 learning_rate_non_decoder = 1e-3
-learning_rate_decoder = 1e-4
+learning_rate_decoder = 1e-3
 optimizer_non_decoder = optim.Adam(mymodel.parameters(), lr=learning_rate_non_decoder)
-optimizer_decoder = optim.Adam([j for i in [list(x.parameters()) for x in mymodel.decoder_multilayer_cell.gru_cell_array] for j in i], lr = learning_rate_decoder)
+optimizer_decoder = optim.SGD([j for i in [list(x.parameters()) for x in mymodel.decoder_multilayer_cell.gru_cell_array] for j in i], lr = learning_rate_decoder)
 
 print(mymodel.parameters())
 #print(mymodel.decoder_multilayer_cell.parameters())
