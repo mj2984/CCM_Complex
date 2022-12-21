@@ -13,7 +13,7 @@ from tqdm import tqdm
 import sys
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 batch_size = 32
-num_accumulate_batches = 4
+num_accumulate_batches = 1
 num_data_lines = 33700
 num_batches = (num_data_lines // (batch_size*num_accumulate_batches))*num_accumulate_batches
 num_epochs = 50
@@ -60,6 +60,7 @@ token_to_symbol_dictionary = json.loads(f.readline())
 f.close()
 token_to_symbol_default = token_to_symbol_dictionary['unk']
 token_to_symbol_weight = token_to_symbol_dictionary['pad']
+token_to_symbol_weight_all_unique = token_to_symbol_dictionary['eos']
 
 class batch_tensor_input_gen:
     def __init__(self, batch_token_target, batch_subgraph_triples_target, hrtw_embedding_sizes_as_tuples):
@@ -652,8 +653,13 @@ mymodel = CCM_Model(Graph_encoder_internal_size, gru_encoder_hidden_size, gru_en
                     word_vocabulary_appender_length).to(device)
 loss_word_symbol_probabilities = torch.nn.NLLLoss()
 loss_word_knowledge_probabilities = torch.nn.BCELoss()
-learning_rate = 1e-3
-optimizer = optim.Adam(mymodel.parameters(), lr=learning_rate)
+learning_rate_non_decoder = 1e-3
+learning_rate_decoder = 1e-3
+optimizer_non_decoder = optim.Adam(mymodel.parameters(), lr=learning_rate_non_decoder)
+optimizer_decoder = optim.Adam([j for i in [list(x.parameters()) for x in mymodel.decoder_multilayer_cell.gru_cell_array] for j in i], lr = learning_rate_decoder)
+
+print(mymodel.parameters())
+#print(mymodel.decoder_multilayer_cell.parameters())
 
 #mymodel.load_state_dict(torch.load('./epoch_1.pt')['model_state_dict'])
 #optimizer.load_state_dict(torch.load('./epoch_1.pt')['optimizer_state_dict'])
@@ -661,7 +667,10 @@ optimizer = optim.Adam(mymodel.parameters(), lr=learning_rate)
 def train(epoch_begin,epoch_end):
     if(epoch_begin != 0):
         mymodel.load_state_dict(torch.load(save_directory + "epoch_" + str(epoch_begin-1) + ".pt")['model_state_dict'])
-        optimizer.load_state_dict(torch.load(save_directory + "epoch_" + str(epoch_begin-1) + ".pt")['optimizer_state_dict'])
+        mymodel.decoder_multilayer_cell.gru_cell_array[0].load_state_dict(torch.load(save_directory + "epoch_" + str(epoch_begin-1) + ".pt")['model_decoder_layer_0_dict'])
+        mymodel.decoder_multilayer_cell.gru_cell_array[1].load_state_dict(torch.load(save_directory + "epoch_" + str(epoch_begin-1) + ".pt")['model_decoder_layer_1_dict'])
+        optimizer_non_decoder.load_state_dict(torch.load(save_directory + "epoch_" + str(epoch_begin-1) + ".pt")['optimizer_state_dict'])
+        optimizer_decoder.load_state_dict(torch.load(save_directory + "epoch_" + str(epoch_begin-1) + ".pt")['optimizer_decoder_state_dict'])
         computed_loss = torch.load(save_directory + "epoch_" + str(epoch_begin-1) + ".pt")['loss']
     
     mymodel.train()
@@ -669,6 +678,10 @@ def train(epoch_begin,epoch_end):
     for epoch in range(epoch_begin, epoch_end):
         f = open(train_file, "r")
         # print("epoch is" + str(epoch))
+        loss_accum = 0;
+        
+        decoder_loss_threshold = 1.07 if epoch == 0 else 1.03
+        
         for batch in tqdm(range(0, num_batches)):
             h = []
             for sentence_id in range(batch_size):
@@ -684,21 +697,28 @@ def train(epoch_begin,epoch_end):
             batchwise_all_token_embeddings, q_vals, batch_all_responses, sparse_sentence_processed_subgraphs = my_preprocessor.sentence_embed_gen(h, batch_size)
             
             Complex1 = torch.zeros(sparse_sentence_processed_subgraphs[0].shape[0],sparse_sentence_processed_subgraphs[0].shape[1],sparse_sentence_processed_subgraphs[0].shape[2],sparse_sentence_processed_subgraphs[0].shape[3]//2, dtype = torch.cfloat);
-            Complex1.Real = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
-            Complex1.Imag = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
+            Complex1.real = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+            Complex1.imag = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
             Complex2 = torch.zeros(sparse_sentence_processed_subgraphs[0].shape[0],sparse_sentence_processed_subgraphs[0].shape[1],sparse_sentence_processed_subgraphs[0].shape[2],sparse_sentence_processed_subgraphs[0].shape[3]//2, dtype = torch.cfloat);
-            Complex2.Real = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
-            Complex2.Imag = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
+            Complex2.real = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+            Complex2.imag = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
             Complex3 = torch.zeros(sparse_sentence_processed_subgraphs[0].shape[0],sparse_sentence_processed_subgraphs[0].shape[1],sparse_sentence_processed_subgraphs[0].shape[2],sparse_sentence_processed_subgraphs[0].shape[3]//2, dtype = torch.cfloat);
-            Complex3.Real = sparse_sentence_processed_subgraphs[1].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
-        
+            Rel_phase = sparse_sentence_processed_subgraphs[1].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+            Complex3.real = torch.cos(Rel_phase)
+            Complex3.imag = torch.sin(Rel_phase)
+            
             batchwise_concatenated_data = torch.cat((Complex1,Complex2,Complex3),dim=3).to(device)
             #print(batchwise_concatenated_data.dtype)
 
             batchwise_all_token_embeddings = batchwise_all_token_embeddings.to(device)
             batch_all_responses_gpu = batch_all_responses.long().to(device)
-            batch_all_responses_weights = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0, 1)
-            batch_all_responses_weights_complement = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0.85, 0)
+            if(epoch % 2 == 0):
+                batch_all_responses_weights = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0, 1)
+                batch_all_responses_weights_complement = torch.where(batch_all_responses_gpu == token_to_symbol_weight, 0.85, 0)
+            else:
+                batch_all_responses_weights = torch.where(batch_all_responses_gpu >= token_to_symbol_weight_all_unique, 0, 1)
+                batch_all_responses_weights_complement = torch.where(batch_all_responses_gpu >= token_to_symbol_weight_all_unique, 0.85, 0)
+            
             #b = torch.sum(batch_all_responses_weights,dim=1)
             #vertical_ids = torch.zeros(0)
             #horizontal_ids = torch.zeros(0)
@@ -729,7 +749,8 @@ def train(epoch_begin,epoch_end):
 
             # anything greater than 0 should be 1
             if(batch%num_accumulate_batches == 0):
-                optimizer.zero_grad()
+                optimizer_non_decoder.zero_grad()
+                optimizer_decoder.zero_grad()
             
             if(batch%100 == 0):
                 print(predictions[:,:,0])
@@ -739,18 +760,40 @@ def train(epoch_begin,epoch_end):
             #print(loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1)))
             computed_loss = torch.mul((0.15*current_batch_length*loss_word_knowledge_probabilities(probability_word_knowledge_tensor.view(-1), q_val_target.view(-1)) + loss_word_symbol_probabilities(valid_word_symbol_probabilities.view(-1,1),word_predict_target.view(-1))),word_regularizer)
             computed_loss.backward()
+            #print("accumulated loss is")
+            #print(loss_accum)
+            #print("current loss is")
+            #print(computed_loss.item())
             if(batch%num_accumulate_batches == num_accumulate_batches-1):
-                optimizer.step()
+                accumulated_batches = batch//num_accumulate_batches
+                loss_accum = (loss_accum*accumulated_batches + computed_loss.item())/(1 + accumulated_batches)
+                if(epoch < 2):
+                    optimizer_non_decoder.step()
+                    if(accumulated_batches > 0 and loss_accum/computed_loss.item() < decoder_loss_threshold):
+                        print("optimizing decoder")
+                        # The optimizer is operated on decoder when loss is not decreasing enough.
+                        optimizer_decoder.step()
+                else:
+                    optimizer_decoder.step()
+                    # iteration 2 is left to just the decoder to optimize. After that we have both decoder and non_decoder_optimizing again.
+                    if(epoch > 2):
+                        if(accumulated_batches > 0 and loss_accum/computed_loss.item() < decoder_loss_threshold):
+                            print("optimizing non decoder")
+                            optimizer_non_decoder.step()
+                    
+                # Best to reset the accumulated loss every time the overall loss becomes like from 15 to 10 etc, so that the swing does not accumulate and prevent the convergence.
             
-            print(f"Loss: {computed_loss.item()} PPL: {torch.exp(computed_loss).item()} ")
-        
-        
+            print(f"Computed/Cumulative Loss: {computed_loss.item()} / {loss_accum} PPL: {torch.exp(computed_loss).item()} ")
+
         #file_saver = save_directory + "epoch_" + str(epoch) + ".pt"
         print(f"End epoch {epoch} saving " + str(epoch))
         torch.save({
             'epoch': epoch,
             'model_state_dict': mymodel.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
+            'model_decoder_layer_0_dict': mymodel.decoder_multilayer_cell.gru_cell_array[0].state_dict(),
+            'model_decoder_layer_1_dict': mymodel.decoder_multilayer_cell.gru_cell_array[1].state_dict(),
+            'optimizer_state_dict': optimizer_non_decoder.state_dict(),
+            'optimizer_decoder_state_dict': optimizer_decoder.state_dict(),
             'loss': computed_loss,
             'ppl': torch.exp(computed_loss).item(),
         }, save_directory + "epoch_" + str(epoch) + ".pt")
@@ -775,13 +818,15 @@ def train(epoch_begin,epoch_end):
             batchwise_all_token_embeddings, q_vals, batch_all_responses, sparse_sentence_processed_subgraphs = my_preprocessor.sentence_embed_gen(h, batch_size)
             
             Complex1 = torch.zeros(sparse_sentence_processed_subgraphs[0].shape[0],sparse_sentence_processed_subgraphs[0].shape[1],sparse_sentence_processed_subgraphs[0].shape[2],sparse_sentence_processed_subgraphs[0].shape[3]//2, dtype = torch.cfloat);
-            Complex1.Real = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
-            Complex1.Imag = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
+            Complex1.real = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+            Complex1.imag = sparse_sentence_processed_subgraphs[0].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
             Complex2 = torch.zeros(sparse_sentence_processed_subgraphs[0].shape[0],sparse_sentence_processed_subgraphs[0].shape[1],sparse_sentence_processed_subgraphs[0].shape[2],sparse_sentence_processed_subgraphs[0].shape[3]//2, dtype = torch.cfloat);
-            Complex2.Real = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
-            Complex2.Imag = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
+            Complex2.real = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+            Complex2.imag = sparse_sentence_processed_subgraphs[2].to_dense()[:,:,:,sparse_sentence_processed_subgraphs[0].shape[3]//2:sparse_sentence_processed_subgraphs[0].shape[3]]
             Complex3 = torch.zeros(sparse_sentence_processed_subgraphs[0].shape[0],sparse_sentence_processed_subgraphs[0].shape[1],sparse_sentence_processed_subgraphs[0].shape[2],sparse_sentence_processed_subgraphs[0].shape[3]//2, dtype = torch.cfloat);
-            Complex3.Real = sparse_sentence_processed_subgraphs[1].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+            Rel_phase = sparse_sentence_processed_subgraphs[1].to_dense()[:,:,:,0:sparse_sentence_processed_subgraphs[0].shape[3]//2]
+            Complex3.real = torch.cos(Rel_phase)
+            Complex3.imag = torch.sin(Rel_phase)
         
             batchwise_concatenated_data = torch.cat((Complex1,Complex2,Complex3),dim=3).to(device)
             #print(batchwise_concatenated_data.dtype)

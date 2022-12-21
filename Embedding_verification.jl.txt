@@ -1,0 +1,32 @@
+using CSV
+using DataFrames
+using JSON3
+using ArgParse
+using DelimitedFiles
+
+path_1 ="C:/Users/manue/Desktop/GitHubProjects/Fall2022-CourseProject1/CCM_Torch/Data/Knowledge_Data/Embeddings/RotatE/Augmented/"
+entity_files = path_1 * "entity_RotatE.txt"
+relation_files = path_1 * "relation_RotatE.txt"
+all_relation_vector = readdlm(relation_files);
+all_entity_vector = readdlm(entity_files);
+
+entity_new = all_entity_vector[:,1:50] .+ im*all_entity_vector[:,51:100];
+relation_new = cos.(all_relation_vector) .+ im*sin.(all_relation_vector);
+
+
+A = entity_new[9423,:];
+B = entity_new[7154,:];
+C = relation_new[20,:];
+
+abs.(B - A.*C)
+
+5950
+767
+3
+
+
+6637
+17638
+22
+
+entity_new = all_entity_vector[:,map(x -> 2*x - 1, 1:50)] .+ im*all_entity_vector[:,map(x -> 2*x, 1:50)];
