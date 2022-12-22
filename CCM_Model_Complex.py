@@ -678,9 +678,12 @@ def train(epoch_begin,epoch_end):
     for epoch in range(epoch_begin, epoch_end):
         f = open(train_file, "r")
         # print("epoch is" + str(epoch))
-        loss_accum = 0;
+        loss_accum = 0
         
         decoder_loss_threshold = 1.07 if epoch == 0 else 1.03
+        
+        accum_loss_max = 0
+        offset_accum_batch = 0
         
         for batch in tqdm(range(0, num_batches)):
             h = []
@@ -765,12 +768,21 @@ def train(epoch_begin,epoch_end):
             #print("current loss is")
             #print(computed_loss.item())
             if(batch%num_accumulate_batches == num_accumulate_batches-1):
-                accumulated_batches = batch//num_accumulate_batches
+                accumulated_batches = (batch//num_accumulate_batches)
                 loss_accum = (loss_accum*accumulated_batches + computed_loss.item())/(1 + accumulated_batches)
+                if(loss_accum < (0.64*accum_loss_max)):
+                    print("updating accumulated loss \n")
+                    loss_accum = (loss_accum*(accumulated_batches - offset_accum_batch) + computed_loss.item()*(offset_accum_batch + 1))/(accumulated_batches + 1)
+                    accum_loss_max = 0
+                    offset_accum_batch = accumulated_batches
+                    
+                accum_loss_max = max(accum_loss_max,loss_accum)
+                print(accum_loss_max)
+                
                 if(epoch < 2):
                     optimizer_non_decoder.step()
                     if(accumulated_batches > 0 and loss_accum/computed_loss.item() < decoder_loss_threshold):
-                        print("optimizing decoder")
+                        print("optimizing decoder \n")
                         # The optimizer is operated on decoder when loss is not decreasing enough.
                         optimizer_decoder.step()
                 else:
