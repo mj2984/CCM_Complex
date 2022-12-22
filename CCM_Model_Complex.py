@@ -772,12 +772,13 @@ def train(epoch_begin,epoch_end):
                 loss_accum = (loss_accum*accumulated_batches + computed_loss.item())/(1 + accumulated_batches)
                 if(loss_accum < (0.64*accum_loss_max)):
                     print("updating accumulated loss \n")
+                    print("offset_batch is")
+                    print(offset_accum_batch)
                     loss_accum = (loss_accum*(accumulated_batches - offset_accum_batch) + computed_loss.item()*(offset_accum_batch + 1))/(accumulated_batches + 1)
                     accum_loss_max = 0
                     offset_accum_batch = accumulated_batches
                     
                 accum_loss_max = max(accum_loss_max,loss_accum)
-                print(accum_loss_max)
                 
                 if(epoch < 2):
                     optimizer_non_decoder.step()
