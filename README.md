@@ -22,13 +22,17 @@ Step 1: Run "CCM_PreProcessor_Data.jl" in Julia to perform pre-processing on the
 
 Step 2: Run "CCM_Model_Complex.py" in Python to train the model with Complex Valued Neural Networks (or "CCM_Model_Optimized.py" for the one without Complex Value support).
 
-## Paper
+## Paper (Cited)
 
 Hao Zhou, Tom Yang, Minlie Huang, Haizhou Zhao, Jingfang Xu, Xiaoyan Zhu.  
 [Commonsense Knowledge Aware Conversation Generation with Graph Attention.](http://coai.cs.tsinghua.edu.cn/hml/media/files/2018_commonsense_ZhouHao_3_TYVQ7Iq.pdf)  
 IJCAI-ECAI 2018, Stockholm, Sweden.
 
 **Please kindly cite the original paper if the paper and the original code are helpful.**
+
+## Acknowlegments
+
+We would like to thank the authors of the paper for sharing their work. We also thank our Professor Zhou Yu, John Wright and Richard Zemel and Teaching Assistants Max Chen and Weiyan Shi for their support with understanding the model and handling complex valued neural networks.
 
 ## License
 
