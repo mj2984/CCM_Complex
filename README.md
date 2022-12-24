@@ -1,7 +1,7 @@
 # CCM Torch
 A PyTorch derivative of CCM.
 
-The model implemented here closely follows the [CCM](https://github.com/thu-coai/ccm) architecture with mild changes to the preprocessing pipeline and loss functions. The preprocessor is implemented in Julia.
+The model implemented here closely follows the [CCM](https://github.com/thu-coai/ccm) architecture with mild changes to the architecture, preprocessing pipeline and loss functions. The preprocessor is implemented in Julia.
 
 # Required infrastructure:
 
