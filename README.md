@@ -1,7 +1,7 @@
 # CCM Torch
 A PyTorch derivative of CCM.
 
-The model implemented here closely follows the CCM architecture with mild changes to the preprocessing pipeline and loss functions. The preprocessor is implemented in Julia.
+The model implemented here closely follows the [CCM](https://github.com/thu-coai/ccm) architecture with mild changes to the preprocessing pipeline and loss functions. The preprocessor is implemented in Julia.
 
 # Required infrastructure:
 
@@ -20,4 +20,4 @@ Step 0: TSV_Generate.jl and CCM_PreProcessor_Word_Vocabulary.jl do initial pre-p
 
 Step 1: Run "CCM_PreProcessor_Data.jl" in Julia to perform pre-processing on the training data stored in "Pre_processed_data/trainset.txt". This will output a post-processed data at "Post_processed_data" with the same name.
 
-Step 2: Run "CCM_Model_Optimized.py" in Python to train the model.
+Step 2: Run "CCM_Model_Complex.py" in Python to train the model with Complex Valued Neural Networks (or "CCM_Model_Optimized.py" for the one without Complex Value support).
