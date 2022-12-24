@@ -32,7 +32,7 @@ IJCAI-ECAI 2018, Stockholm, Sweden.
 
 ## Acknowlegments
 
-We would like to thank the authors of the paper for sharing their work. We also thank our Professor Zhou Yu, John Wright and Richard Zemel and Teaching Assistants Max Chen and Weiyan Shi for their support with understanding the model and handling complex valued neural networks.
+We would like to thank the authors of the paper for sharing their work. We also thank our Professor Zhou Yu, John Wright and Richard Zemel and Teaching Assistants Max Chen and Weiyan Shi for their support with helping us understand the model and in handling complex valued neural networks.
 
 ## License
 
