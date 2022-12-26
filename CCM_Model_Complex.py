@@ -781,7 +781,7 @@ def train(epoch_begin,epoch_end):
                     accum_loss_max = 0
                     offset_accum_batch = accumulated_batches
         
-                elif((min(loss_accum/loss_accum_old + 0.15),loss_accum_old/(loss_accum + 0.15)) > 0.97):
+                elif(min(loss_accum/(loss_accum_old + 0.15),loss_accum_old/(loss_accum + 0.15)) > 0.97):
                     converged_accum_batches = converged_accum_batches + 1
                     if(converged_accum_batches == 8):
                         print("loss accumuluation converged, updating accumulated loss")
