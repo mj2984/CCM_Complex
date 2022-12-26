@@ -781,7 +781,7 @@ def train(epoch_begin,epoch_end):
                     accum_loss_max = 0
                     offset_accum_batch = accumulated_batches
         
-                elif(min(loss_accum/loss_accum_old,loss_accum_old/loss_accum) > 0.98):
+                elif((min(loss_accum/loss_accum_old + 0.15),loss_accum_old/(loss_accum + 0.15)) > 0.97):
                     converged_accum_batches = converged_accum_batches + 1
                     if(converged_accum_batches == 8):
                         print("loss accumuluation converged, updating accumulated loss")
@@ -822,6 +822,7 @@ def train(epoch_begin,epoch_end):
         #torch.save(mymodel.state_dict(), save_directory + "epoch_model_only_" + str(epoch) + ".pt")
         f.close()
         
+        '''
         f = open(test_file, "r")
         for batch1 in range(0,1):
             print("batch is")
@@ -873,6 +874,7 @@ def train(epoch_begin,epoch_end):
             np.save(save_directory + "probabilities_" + str(epoch) + "_batch_" + str(batch1) + ".npy", word_symbol_probabilties_tensor.detach().cpu().numpy())
         f.close()
         print("end epoch results")
+        '''
 
     # f = open(train_file,"r")
     # sentence_processed_subgraphs.append(np.random.rand(batch_size,dynamic_batch_sequence_length[1],hrtw_embedding_sizes[3]))
