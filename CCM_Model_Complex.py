@@ -684,6 +684,7 @@ def train(epoch_begin,epoch_end):
         
         accum_loss_max = 0
         offset_accum_batch = 0
+        converged_accum_batches = 0
         
         for batch in tqdm(range(0, num_batches)):
             h = []
@@ -769,7 +770,9 @@ def train(epoch_begin,epoch_end):
             #print(computed_loss.item())
             if(batch%num_accumulate_batches == num_accumulate_batches-1):
                 accumulated_batches = (batch//num_accumulate_batches)
+                loss_accum_old = loss_accum
                 loss_accum = (loss_accum*accumulated_batches + computed_loss.item())/(1 + accumulated_batches)
+
                 if(loss_accum < (0.64*accum_loss_max)):
                     print("updating accumulated loss \n")
                     print("offset_batch is")
@@ -777,10 +780,17 @@ def train(epoch_begin,epoch_end):
                     loss_accum = (loss_accum*(accumulated_batches - offset_accum_batch) + computed_loss.item()*(offset_accum_batch + 1))/(accumulated_batches + 1)
                     accum_loss_max = 0
                     offset_accum_batch = accumulated_batches
+        
+                elif(min(loss_accum/loss_accum_old,loss_accum_old/loss_accum) > 0.98):
+                    converged_accum_batches = converged_accum_batches + 1
+                    if(converged_accum_batches == 8):
+                        print("loss accumuluation converged, updating accumulated loss")
+                        loss_accum = (computed_loss.item() * decoder_loss_threshold)
+                        converged_accum_batches = 0
                     
                 accum_loss_max = max(accum_loss_max,loss_accum)
                 
-                if(epoch < 2):
+                if(epoch < 2 or epoch % 5 == 3):
                     optimizer_non_decoder.step()
                     if(accumulated_batches > 0 and loss_accum/computed_loss.item() < decoder_loss_threshold):
                         print("optimizing decoder \n")
@@ -788,12 +798,11 @@ def train(epoch_begin,epoch_end):
                         optimizer_decoder.step()
                 else:
                     optimizer_decoder.step()
-                    # iteration 2 is left to just the decoder to optimize. After that we have both decoder and non_decoder_optimizing again.
-                    if(epoch > 2):
-                        if(accumulated_batches > 0 and loss_accum/computed_loss.item() < decoder_loss_threshold):
-                            print("optimizing non decoder")
-                            optimizer_non_decoder.step()
-                    
+                    if((epoch % 5 == 1) or (epoch % 5 !=2 and accumulated_batches > 0 and loss_accum/computed_loss.item() < decoder_loss_threshold)):
+                        # iteration 2 in each cycle is left to just the decoder to optimize. After that we have both decoder and non_decoder_optimizing again.
+                        print("optimizing non decoder")
+                        optimizer_non_decoder.step()
+   
                 # Best to reset the accumulated loss every time the overall loss becomes like from 15 to 10 etc, so that the swing does not accumulate and prevent the convergence.
             
             print(f"Computed/Cumulative Loss: {computed_loss.item()} / {loss_accum} PPL: {torch.exp(computed_loss).item()} ")
